@@ -1,0 +1,466 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.elder_drake.idle": {
+			"loop": true,
+			"animation_length": 29.2083,
+			"bones": {
+				"left": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"math.sin(query.anim_time * 600) * 30"
+						]
+					}
+				},
+				"right": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"math.sin(query.anim_time * 600) * 30"
+						]
+					}
+				},
+				"rightbackleg": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"math.sin(query.anim_time * 150) * 15"
+						]
+					}
+				},
+				"leftbackleg": {
+					"rotation": {
+						"16.2917": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"18.2917": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 15"
+							]
+						}
+					}
+				},
+				"leftfrontleg": {
+					"rotation": {
+						"0.75": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"23.5833": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 15"
+							]
+						}
+					}
+				},
+				"rightfrontleg": {
+					"rotation": {
+						"8.25": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"20.0833": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"25.25": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"27.125": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 15"
+							]
+						}
+					}
+				}
+			}
+		},
+		"animation.elder_drake.fly": {
+			"loop": true,
+			"animation_length": 29.2083,
+			"bones": {
+				"left": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"math.sin(query.anim_time * 600) * 30"
+						]
+					}
+				},
+				"right": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"math.sin(query.anim_time * 600) * 30"
+						]
+					}
+				},
+				"rightbackleg": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"math.sin(query.anim_time * 150) * 15"
+						]
+					}
+				},
+				"leftbackleg": {
+					"rotation": {
+						"16.2917": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"18.2917": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 15"
+							]
+						}
+					}
+				},
+				"leftfrontleg": {
+					"rotation": {
+						"0.75": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"23.5833": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 15"
+							]
+						}
+					}
+				},
+				"rightfrontleg": {
+					"rotation": {
+						"8.25": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"20.0833": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"25.25": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 25"
+							]
+						},
+						"27.125": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 150) * 15"
+							]
+						}
+					}
+				}
+			}
+		},
+		"animation.elder_drake.walk": {
+			"loop": true,
+			"animation_length": 14.5417,
+			"bones": {
+				"rightbackleg": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 360) * 15"
+							]
+						},
+						"14.5417": {
+							"vector": [
+								0,
+								0,
+								"math.sin(query.anim_time * 360) * 25"
+							]
+						}
+					}
+				},
+				"leftbackleg": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"(1-math.sin(query.anim_time * 360)* 15) "
+						]
+					}
+				},
+				"leftfrontleg": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"math.sin(query.anim_time * 360) * 15"
+						]
+					}
+				},
+				"rightfrontleg": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							"(1-math.sin(query.anim_time * 360)* 15) "
+						]
+					}
+				}
+			}
+		},
+		"animation.elder_drake.attack_meele": {
+			"animation_length": 1.8333,
+			"bones": {
+				"head": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.375": {
+							"vector": [
+								0,
+								0,
+								-30
+							]
+						},
+						"1.25": {
+							"vector": [
+								0,
+								0,
+								-25.91
+							]
+						},
+						"1.75": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"upperjaw": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.375": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.75": {
+							"vector": [
+								0,
+								0,
+								10
+							]
+						},
+						"1.25": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"lowerjaw": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.375": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.75": {
+							"vector": [
+								0,
+								0,
+								-10
+							]
+						},
+						"1.25": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						}
+					}
+				}
+			}
+		},
+		"animation.elder_drake.attack_range": {
+			"animation_length": 2.25,
+			"bones": {
+				"head": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.5": {
+							"vector": [
+								0,
+								0,
+								-10
+							]
+						},
+						"2.0": {
+							"vector": [
+								0,
+								0,
+								-10
+							]
+						},
+						"2.25": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"upperjaw": {
+					"rotation": {
+						"0.5": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.7083": {
+							"vector": [
+								0,
+								0,
+								12.5
+							]
+						},
+						"1.5": {
+							"vector": [
+								0,
+								0,
+								12.5
+							]
+						},
+						"1.6667": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"lowerjaw": {
+					"rotation": {
+						"0.5": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.7083": {
+							"vector": [
+								0,
+								0,
+								-12.5
+							]
+						},
+						"1.5": {
+							"vector": [
+								0,
+								0,
+								-12.5
+							]
+						},
+						"1.6667": {
+							"vector": [
+								0,
+								0,
+								2.5
+							]
+						}
+					}
+				}
+			}
+		},
+		"animation.elder_drake.stand": {
+			"loop": true,
+			"animation_length": 0.1,
+			"bones": {}
+		}
+	},
+	"geckolib_format_version": 2
+}
