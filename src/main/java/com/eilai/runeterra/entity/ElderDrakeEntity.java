@@ -83,7 +83,7 @@ public class ElderDrakeEntity extends Monster implements GeoEntity {
     // ── Boss bar ──────────────────────────────────────────────────────────────
     private static final int    BOSS_BAR_RANGE   = 80;
     private static final int    MIN_SPAWN_Y      = 150;
-    private static final double MIN_SPAWN_DIST   = 256.0;
+    private static final double MIN_SPAWN_DIST   = 1024.0;
     private static final float  PHASE2_HP        = 0.60f;
     private static final float  PHASE3_HP        = 0.30f;
 
@@ -757,6 +757,7 @@ public class ElderDrakeEntity extends Monster implements GeoEntity {
             EntitySpawnReason reason, BlockPos pos, RandomSource random) {
         if (pos.getY() < MIN_SPAWN_Y) return false;
         if (!level.getLevelData().isThundering()) return false;
+        if (!level.canSeeSky(pos)) return false;
         List<ElderDrakeEntity> nearby = level.getEntitiesOfClass(ElderDrakeEntity.class,
                 new AABB(pos.getX() - MIN_SPAWN_DIST, pos.getY() - 128, pos.getZ() - MIN_SPAWN_DIST,
                         pos.getX() + MIN_SPAWN_DIST, pos.getY() + 128, pos.getZ() + MIN_SPAWN_DIST));

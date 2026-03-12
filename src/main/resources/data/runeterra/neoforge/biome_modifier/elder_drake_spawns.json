@@ -4,7 +4,7 @@
   "spawners": [
     {
       "type": "runeterra:elder_drake",
-      "weight": 50,
+      "weight": 2,
       "minCount": 1,
       "maxCount": 1
     }
