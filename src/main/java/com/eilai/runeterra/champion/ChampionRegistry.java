@@ -219,7 +219,18 @@ public final class ChampionRegistry {
 
         // ── V ─────────────────────────────────────────────────────────────────
         register(champ("varus",         "Varus",         "the Arrow of Retribution"));
-        register(champ("vayne",         "Vayne",         "the Night Hunter"));
+        register(ChampionDefinition.builder("vayne", "Vayne", "the Night Hunter")
+                .available()
+                .splash("vayne.png")
+                .weapon("vayne_weapon")
+                .passive("Night Hunter: Gain bonus movement speed when moving toward a nearby enemy within 25 blocks.")
+                .q("Tumble: Dash in your movement direction. Gain brief invisibility after. Q key.")
+                .w("Silver Bolts: Every 3rd hit on the same enemy deals true damage equal to 4% of their max HP per rank. E key.")
+                .e("Condemn: Knock back a nearby enemy. Stun + bonus damage if they hit a wall. R key.")
+                .r("Final Hour: 8 seconds of bonus AD, speed, shorter Tumble cooldown, and black smoke. T key.")
+                .d("Summoner Spell D (F key): Chosen via Spellbook.")
+                .f("Summoner Spell F (C key): Chosen via Spellbook.")
+                .build());
         register(champ("veigar",        "Veigar",        "the Tiny Master of Evil"));
         register(champ("velkoz",        "Vel'Koz",       "the Eye of the Void"));
         register(champ("vex",           "Vex",           "the Gloomist"));

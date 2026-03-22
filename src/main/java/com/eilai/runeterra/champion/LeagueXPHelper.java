@@ -1,9 +1,10 @@
 package com.eilai.runeterra.champion;
 
+import com.eilai.runeterra.champion.MobXPConfig;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.monster.*;
-import net.minecraft.world.entity.animal.*;
 
 /**
  * Handles all League-style XP and ability unlock logic.
@@ -18,23 +19,23 @@ public final class LeagueXPHelper {
     // ── XP thresholds (XP needed to reach NEXT level) ────────────────────────
     // Index = current level (1-17). Level 18 is max, no further XP needed.
     private static final int[] XP_TO_NEXT = {
-        /*1→2*/  280,
-        /*2→3*/  380,
-        /*3→4*/  480,
-        /*4→5*/  580,
-        /*5→6*/  700,
-        /*6→7*/  820,
-        /*7→8*/  940,
-        /*8→9*/  1060,
-        /*9→10*/ 1180,
-        /*10→11*/1300,
-        /*11→12*/1420,
-        /*12→13*/1540,
-        /*13→14*/1660,
-        /*14→15*/1780,
-        /*15→16*/1900,
-        /*16→17*/2020,
-        /*17→18*/2140
+            /*1→2*/  280,
+            /*2→3*/  380,
+            /*3→4*/  480,
+            /*4→5*/  580,
+            /*5→6*/  700,
+            /*6→7*/  820,
+            /*7→8*/  940,
+            /*8→9*/  1060,
+            /*9→10*/ 1180,
+            /*10→11*/1300,
+            /*11→12*/1420,
+            /*12→13*/1540,
+            /*13→14*/1660,
+            /*14→15*/1780,
+            /*15→16*/1900,
+            /*16→17*/2020,
+            /*17→18*/2140
     };
 
     /**
@@ -50,9 +51,16 @@ public final class LeagueXPHelper {
 
     /**
      * Returns the League XP reward for killing a given entity.
-     * Returns 0 if the entity shouldn't grant XP.
+     * Values are loaded from config/runeterra/mob_xp.json —
+     * edit that file to change XP rewards without recompiling.
      */
     public static int getMobXP(LivingEntity entity) {
+        return MobXPConfig.getXP(entity);
+    }
+
+    // ── Old hardcoded values kept here for reference only ─────────────────────
+    @SuppressWarnings("unused")
+    private static int getMobXPLegacy(LivingEntity entity) {
         EntityType<?> type = entity.getType();
 
         // Passive mobs — small reward

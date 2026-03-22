@@ -31,7 +31,7 @@ public class GarenSwordItem extends ChampionWeapon {
             8.0,                        // attackDamage
             1.4,                        // attackSpeed (attacks per second)
             4.0,                        // attackRange (blocks)
-            new Item.Properties()
+            new Properties()
         );
     }
 }

@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/handheld",
   "textures": {
-    "layer0": "runeterra:item/drakeblade"
+    "layer0": "runeterra:item/elderblade"
   }
 }

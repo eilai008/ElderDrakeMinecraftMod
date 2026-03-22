@@ -1,13 +1,12 @@
 package com.eilai.runeterra.client.hud;
 
-import com.eilai.runeterra.champion.ChampionWeaponSlot;
+import com.eilai.runeterra.champion.IChampionInventory;
 import com.eilai.runeterra.champion.PlayerChampionData;
 import com.eilai.runeterra.item.weapon.ChampionWeapon;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.eilai.runeterra.item.weapon.VayneWeaponItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -15,31 +14,11 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 
-/**
- * Renders the champion weapon slot as a custom HUD element.
- *
- * Layout: a single slot rendered above and slightly left of the hotbar,
- * aligned with slot 0. It has:
- *  - A gold border when selected (slot 0 is active)
- *  - A grey locked border when not selected
- *  - A lock icon overlay for "no_champion" (empty placeholder)
- *  - The weapon item rendered inside
- *  - "0" key hint label below the slot
- *  - Weapon name tooltip above the slot when selected
- */
 @EventBusSubscriber(modid = "runeterra", value = Dist.CLIENT)
 public class WeaponSlotHud {
 
-    // Slot dimensions
-    private static final int SLOT_SIZE    = 22;
-    private static final int BORDER       = 2;
-
-    // Colors
-    private static final int COLOR_BORDER_SELECTED   = 0xFFFFD700; // gold
-    private static final int COLOR_BORDER_NORMAL      = 0xFF888888; // grey
-    private static final int COLOR_BORDER_LOCKED      = 0xFF444444; // dark grey
-    private static final int COLOR_BG                 = 0xFF1A1A2E;
-    private static final int COLOR_BG_SELECTED        = 0xFF2A2A1E;
+    private static final int SIZE   = 24;
+    private static final int MARGIN = 6;
 
     @SubscribeEvent
     public static void onRenderHud(RenderGuiLayerEvent.Post event) {
@@ -48,82 +27,67 @@ public class WeaponSlotHud {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options.hideGui) return;
 
-        Player player = mc.player;
+        PlayerChampionData data = PlayerChampionData.get(mc.player);
+        if (data.getChampionId().equals("no_champion")) return;
+
+        ItemStack stack = ItemStack.EMPTY;
+        if (mc.player.getInventory() instanceof IChampionInventory ci) {
+            stack = ci.runeterra$getWeaponStack();
+        }
+        if (stack.isEmpty()) return;
+
+        boolean selected   = data.isWeaponSlotSelected();
+        boolean onCooldown = VayneWeaponItem.isOnCooldown(mc.player.getUUID());
+
         GuiGraphics gfx = event.getGuiGraphics();
+        int sw = mc.getWindow().getGuiScaledWidth();
+        int sh = mc.getWindow().getGuiScaledHeight();
 
-        int screenW = mc.getWindow().getGuiScaledWidth();
-        int screenH = mc.getWindow().getGuiScaledHeight();
+        // Position: bottom right, vertically centred with the hotbar
+        int x = sw - SIZE - MARGIN;
+        int y = sh - 22 + (22 - SIZE) / 2;
 
-        // The vanilla hotbar starts at:
-        int hotbarX = (screenW - 182) / 2;
-        int hotbarY = screenH - 22;
+        // "0" key label ABOVE the slot — always visible so player knows the keybind
+        gfx.drawCenteredString(mc.font,
+                Component.literal("§70"),
+                x + SIZE / 2, y - 9, 0xFFFFFFFF);
 
-        // Our weapon slot sits directly above slot 0 of the hotbar
-        // Slot 0 center in vanilla hotbar = hotbarX + 9
-        int slotX = hotbarX + 1; // align left edge with vanilla slot 0
-        int slotY = hotbarY - SLOT_SIZE - 6; // 6px gap above hotbar
+        // Background
+        gfx.fill(x, y, x + SIZE, y + SIZE,
+                selected ? 0xAA2A2A10 : 0xAA0A0A14);
 
-        boolean selected = player.getInventory().selected == ChampionWeaponSlot.WEAPON_SLOT;
-        PlayerChampionData data = PlayerChampionData.get(player);
-        String champId = data.getChampionId();
-        boolean noChamp = champId.equals("no_champion");
+        // Border — gold when selected, dark gold on cooldown, grey otherwise
+        int border = onCooldown ? 0xFF666633
+                : selected     ? 0xFFFFD700
+                :                0xFF555577;
+        gfx.fill(x,          y,          x + SIZE, y + 1,      border);
+        gfx.fill(x,          y + SIZE-1, x + SIZE, y + SIZE,   border);
+        gfx.fill(x,          y,          x + 1,    y + SIZE,   border);
+        gfx.fill(x + SIZE-1, y,          x + SIZE, y + SIZE,   border);
 
-        ItemStack weaponStack = player.getInventory().getItem(ChampionWeaponSlot.WEAPON_SLOT);
-        boolean hasWeapon = !weaponStack.isEmpty()
-                && weaponStack.getItem() instanceof ChampionWeapon;
+        // Item icon
+        gfx.renderItem(stack, x + 4, y + 4);
 
-        // ── Slot background ────────────────────────────────────────────────
-        int bgColor     = selected ? COLOR_BG_SELECTED : COLOR_BG;
-        int borderColor = noChamp  ? COLOR_BORDER_LOCKED
-                        : selected ? COLOR_BORDER_SELECTED
-                        :            COLOR_BORDER_NORMAL;
+        // Cooldown overlay
+        if (onCooldown) {
+            gfx.fill(x + 1, y + 1, x + SIZE - 1, y + SIZE - 1, 0x99000000);
+        }
 
-        // Fill background
-        gfx.fill(slotX, slotY, slotX + SLOT_SIZE, slotY + SLOT_SIZE, bgColor);
-
-        // Draw border (1px outline)
-        gfx.fill(slotX,                slotY,                slotX + SLOT_SIZE, slotY + 1,           borderColor); // top
-        gfx.fill(slotX,                slotY + SLOT_SIZE - 1,slotX + SLOT_SIZE, slotY + SLOT_SIZE,   borderColor); // bottom
-        gfx.fill(slotX,                slotY,                slotX + 1,         slotY + SLOT_SIZE,   borderColor); // left
-        gfx.fill(slotX + SLOT_SIZE - 1,slotY,                slotX + SLOT_SIZE, slotY + SLOT_SIZE,   borderColor); // right
-
-        // ── Render weapon item or lock icon ────────────────────────────────
-        if (hasWeapon) {
-            gfx.renderItem(weaponStack, slotX + BORDER, slotY + BORDER);
-            gfx.renderItemDecorations(mc.font, weaponStack, slotX + BORDER, slotY + BORDER);
-        } else {
-            // Draw a lock symbol for no_champion or missing weapon
+        // "RMB" hint below when selected
+        if (selected) {
             gfx.drawCenteredString(mc.font,
-                    Component.literal("§7🔒"),
-                    slotX + SLOT_SIZE / 2,
-                    slotY + SLOT_SIZE / 2 - 4,
-                    0xFFFFFF);
+                    Component.literal("§eRMB"),
+                    x + SIZE / 2, y + SIZE + 1, 0xFFFFFFFF);
         }
 
-        // ── "0" key label below the slot ──────────────────────────────────
-        gfx.drawCenteredString(mc.font,
-                Component.literal(selected ? "§e0" : "§70"),
-                slotX + SLOT_SIZE / 2,
-                slotY + SLOT_SIZE + 1,
-                0xFFFFFF);
-
-        // ── Weapon name above slot when selected ───────────────────────────
-        if (selected && hasWeapon && weaponStack.getItem() instanceof ChampionWeapon weapon) {
-            String name = "§6" + weapon.getWeaponDisplayName();
-            int nameW = mc.font.width(name);
-            gfx.drawString(mc.font,
-                    Component.literal(name),
-                    slotX + SLOT_SIZE / 2 - nameW / 2,
-                    slotY - 10,
-                    0xFFFFFF);
+        // Weapon name above the "0" label when selected
+        if (selected && stack.getItem() instanceof ChampionWeapon w) {
+            String name = "§6" + w.getWeaponDisplayName();
+            int nw = mc.font.width(name);
+            gfx.fill(x + SIZE/2 - nw/2 - 1, y - 20,
+                    x + SIZE/2 + nw/2 + 1,  y - 12, 0xAA000000);
+            gfx.drawString(mc.font, Component.literal(name),
+                    x + SIZE/2 - nw/2, y - 19, 0xFFFFFFFF);
         }
-
-        // ── "CHAMPION WEAPON" label — shown briefly on equip (optional) ────
-        // This is rendered as a small label above the slot always, greyed out
-        gfx.drawCenteredString(mc.font,
-                Component.literal("§8Champion"),
-                slotX + SLOT_SIZE / 2,
-                slotY - 18,
-                0xFFFFFF);
     }
 }

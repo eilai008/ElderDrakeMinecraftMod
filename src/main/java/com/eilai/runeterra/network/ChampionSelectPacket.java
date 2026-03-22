@@ -31,10 +31,22 @@ public record ChampionSelectPacket(String championId) implements CustomPacketPay
             if (!(ctx.player() instanceof ServerPlayer player)) return;
 
             PlayerChampionData data = PlayerChampionData.get(player);
-            int result = data.trySetChampion(packet.championId(), player.level().getGameTime());
 
-            if (result == 0) {
+            // First-time selection always works — no cooldown check
+            if (!data.hasSelectedOnce()) {
+                data.forceSetChampion(packet.championId());
                 PlayerChampionEvents.onChampionSelected(player, packet.championId());
+                return;
+            }
+
+            // Subsequent changes go through cooldown check
+            int result = data.trySetChampion(packet.championId(), player.level().getGameTime());
+            switch (result) {
+                case 0 -> PlayerChampionEvents.onChampionSelected(player, packet.championId());
+                case 1 -> player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("§cYou were in combat recently!"), true);
+                case 2 -> player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("§cChampion switch on cooldown!"), true);
             }
         });
     }

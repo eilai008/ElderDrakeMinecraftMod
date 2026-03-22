@@ -24,15 +24,15 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  */
 public record AbilityPacket(int slot) implements CustomPacketPayload {
 
-    public static final CustomPacketPayload.Type<AbilityPacket> TYPE =
-            new CustomPacketPayload.Type<>(
+    public static final Type<AbilityPacket> TYPE =
+            new Type<>(
                     Identifier.fromNamespaceAndPath("runeterra", "ability"));
 
     public static final StreamCodec<ByteBuf, AbilityPacket> STREAM_CODEC =
             ByteBufCodecs.INT.map(AbilityPacket::new, AbilityPacket::slot);
 
     @Override
-    public CustomPacketPayload.Type<AbilityPacket> type() { return TYPE; }
+    public Type<AbilityPacket> type() { return TYPE; }
 
     // ── Server handler ────────────────────────────────────────────────────────
 

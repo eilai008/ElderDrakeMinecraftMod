@@ -1,4 +1,4 @@
 {
-  "base": "0x00BFFF",
-  "overlay": "0x0A0A2E"
+  "base": 49151,
+  "overlay": 657454
 }

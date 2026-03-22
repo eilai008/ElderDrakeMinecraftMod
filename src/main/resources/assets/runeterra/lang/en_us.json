@@ -1,0 +1,26 @@
+{
+  "itemGroup.runeterra": "Runeterra",
+
+  "item.runeterra.champion_crystal": "Champion Crystal",
+  "item.runeterra.spellbook": "Spellbook of the Rift",
+  "item.runeterra.vayne_weapon": "The Bolt",
+  "item.runeterra.elderblade": "Elderblade",
+  "item.runeterra.elder_drake_spawn_egg": "Elder Drake Spawn Egg",
+  "item.runeterra.scuttle_crab_spawn_egg": "Scuttle Crab Spawn Egg",
+
+  "key.categories.runeterra": "Runeterra — Abilities",
+  "key.runeterra.ability_q": "Ability Q (Z key)",
+  "key.runeterra.ability_w": "Ability W (X key)",
+  "key.runeterra.ability_e": "Ability E (C key)",
+  "key.runeterra.ability_r": "Ability R / Ultimate (V key)",
+  "key.runeterra.spell_d": "Summoner Spell D (R key)",
+  "key.runeterra.spell_f": "Summoner Spell F (G key)",
+  "key.runeterra.shoot": "Shoot Weapon (Right Mouse Button)",
+  "key.runeterra.weapon_slot": "Select Weapon Slot (0 key)",
+
+  "mob_effect.runeterra.true_damage": "True Damage",
+
+  "entity.runeterra.elder_drake": "Elder Drake",
+  "entity.runeterra.elder_drake_fireball": "Elder Drake Fireball",
+  "entity.runeterra.scuttle_crab": "Scuttle Crab"
+}

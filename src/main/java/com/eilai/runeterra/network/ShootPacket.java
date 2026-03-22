@@ -30,6 +30,8 @@ public record ShootPacket() implements CustomPacketPayload {
             if (!(ctx.player() instanceof ServerPlayer player)) return;
             PlayerChampionData data = PlayerChampionData.get(player);
 
+            // Only fire if weapon slot is selected (player pressed 0)
+            if (!data.isWeaponSlotSelected()) return;
             // Route to correct champion weapon
             switch (data.getChampionId()) {
                 case "vayne" -> VayneWeaponItem.tryFire(player);

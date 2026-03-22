@@ -1,17 +1,24 @@
 package com.eilai.runeterra.network;
 
+import com.eilai.runeterra.champion.IChampionInventory;
 import com.eilai.runeterra.champion.PlayerChampionData;
+import com.eilai.runeterra.init.WeaponRegistry;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
  * Server → Client sync packet.
  * Sent whenever the player's champion, level, XP, or ability ranks change.
- * The client updates its local PlayerChampionData so the HUD stays current.
+ * The client updates its local PlayerChampionData AND its mixin weapon slot.
+ *
+ * NOTE: The mixin weapon slot (runeterra$weaponStack) is never synced by
+ * vanilla's inventory sync, so we rebuild it on the client from the
+ * championId using WeaponRegistry. No need to send the ItemStack itself.
  */
 public record SyncChampionDataPacket(
         String championId,
@@ -26,8 +33,8 @@ public record SyncChampionDataPacket(
         int spellFCooldown
 ) implements CustomPacketPayload {
 
-    public static final CustomPacketPayload.Type<SyncChampionDataPacket> TYPE =
-            new CustomPacketPayload.Type<>(
+    public static final Type<SyncChampionDataPacket> TYPE =
+            new Type<>(
                     Identifier.fromNamespaceAndPath("runeterra", "sync_champion"));
 
     public static final StreamCodec<ByteBuf, SyncChampionDataPacket> STREAM_CODEC =
@@ -45,7 +52,7 @@ public record SyncChampionDataPacket(
                     SyncChampionDataPacket::new);
 
     @Override
-    public CustomPacketPayload.Type<SyncChampionDataPacket> type() { return TYPE; }
+    public Type<SyncChampionDataPacket> type() { return TYPE; }
 
     // ── Client handler ────────────────────────────────────────────────────────
 
@@ -56,11 +63,7 @@ public record SyncChampionDataPacket(
 
             PlayerChampionData data = PlayerChampionData.get(mc.player);
 
-            // Update all fields from server
             data.forceSetChampion(packet.championId());
-
-            // Directly update the progress array via rankUpAbility won't work cleanly,
-            // so we use a dedicated sync method
             data.syncFromServer(
                     packet.championId(),
                     packet.level(),
@@ -71,8 +74,18 @@ public record SyncChampionDataPacket(
                     packet.rRank()
             );
 
-            // Sync spell cooldowns
             data.getSpellData().syncCooldowns(packet.spellDCooldown(), packet.spellFCooldown());
+
+            // ── FIX: sync the mixin weapon slot on the client ─────────────────
+            // Vanilla never syncs the @Unique mixin field, so we rebuild it here
+            // from the championId using WeaponRegistry.
+            if (mc.player.getInventory() instanceof IChampionInventory ci) {
+                String id = packet.championId();
+                ItemStack weapon = WeaponRegistry.hasWeapon(id)
+                        ? WeaponRegistry.createWeaponStack(id)
+                        : ItemStack.EMPTY;
+                ci.runeterra$setWeaponStack(weapon);
+            }
         });
     }
 

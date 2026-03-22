@@ -65,6 +65,12 @@ public class PlayerSpellData {
         if (cooldownF > 0) cooldownF--;
     }
 
+    /** Sync cooldowns from server packet on client side. */
+    public void syncCooldowns(int cdD, int cdF) {
+        this.cooldownD = cdD;
+        this.cooldownF = cdF;
+    }
+
     // ── Serialization ─────────────────────────────────────────────────────────
 
     public void serialize(ValueOutput out) {

@@ -7,17 +7,17 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
-public class DrakebladeItem extends Item {
+public class ElderbladeItem extends Item {
 
-    private static final float EXECUTE_THRESHOLD = 6.0f;
+    private static final float EXECUTE_THRESHOLD = 0.3f;
 
-    public DrakebladeItem(Properties properties) {
+    public ElderbladeItem(Properties properties) {
         super(properties);
     }
 
     @Override
     public void hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
-        if (target.getHealth() <= EXECUTE_THRESHOLD) {
+        if (target.getHealth() <=( EXECUTE_THRESHOLD*target.getMaxHealth())) {
             if (target.level() instanceof ServerLevel serverLevel) {
                 // Kill the target
                 target.kill(serverLevel);

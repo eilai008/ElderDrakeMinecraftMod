@@ -8,6 +8,8 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import com.eilai.runeterra.network.SyncChampionDataPacket;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
@@ -55,6 +57,8 @@ public record UpgradeAbilityPacket(int slot) implements CustomPacketPayload {
                 };
                 player.displayClientMessage(
                         Component.literal("§a" + slot + " upgraded to rank §f" + newRank + "§a!"), true);
+                // Sync to client so HUD updates immediately
+                PacketDistributor.sendToPlayer(player, SyncChampionDataPacket.from(player));
             } else {
                 player.displayClientMessage(
                         Component.literal("§cCan't upgrade that ability yet!"), true);

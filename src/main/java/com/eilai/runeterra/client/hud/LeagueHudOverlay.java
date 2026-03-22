@@ -4,6 +4,7 @@ import com.eilai.runeterra.champion.LeagueXPHelper;
 import com.eilai.runeterra.champion.PlayerChampionData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -12,148 +13,164 @@ import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 
 /**
- * Renders the League-style HUD overlay:
+ * League HUD — drawn in the BOTTOM CENTER of the screen.
  *
- *  Bottom-center:
- *   [ Level badge ] [ XP bar ]
+ * Vanilla layout at bottom:
+ *   sh-0  to sh-22 : hotbar
+ *   sh-22 to sh-39 : XP bar (vanilla)
+ *   sh-39 to sh-54 : health / food bars
  *
- *  Bottom-center below XP bar:
- *   [ Q: rank ] [ W: rank ] [ E: rank ] [ R: rank ] [ D ] [ F ]
- *   (keys shown as E / R / T / F / C in Minecraft)
+ * We hook AFTER the CAMERA_OVERLAYS layer (renders last before chat)
+ * and draw our HUD anchored to the TOP of the screen to guarantee
+ * zero overlap with ANY vanilla bottom UI.
  *
- *  Only shown when player has selected a champion (not no_champion).
+ * Position: top-left corner starting at y=4, giving a clean compact panel.
  */
 @EventBusSubscriber(modid = "runeterra", value = Dist.CLIENT)
 public class LeagueHudOverlay {
 
-    // ── Layout ─────────────────────────────────────────────────────────────────
-    private static final int BAR_W      = 180;
-    private static final int BAR_H      = 8;
-    private static final int BADGE_SIZE = 20;
-
-    // Ability slot sizes
-    private static final int SLOT_W     = 26;
-    private static final int SLOT_H     = 26;
-    private static final int SLOT_PAD   = 4;
+    // Panel position — top left, safe from all vanilla UI
+    private static final int PANEL_X = 4;
+    private static final int PANEL_Y = 4;
+    private static final int PANEL_W = 120;
+    private static final int SLOT_W  = 22;
+    private static final int SLOT_H  = 22;
+    private static final int SLOT_PAD = 2;
+    private static final int BAR_H   = 4;
 
     @SubscribeEvent
     public static void onRenderHud(RenderGuiLayerEvent.Post event) {
-        if (!event.getName().equals(VanillaGuiLayers.EXPERIENCE_BAR)) return;
+        if (!event.getName().equals(VanillaGuiLayers.CAMERA_OVERLAYS)) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options.hideGui) return;
 
         Player player = mc.player;
         PlayerChampionData data = PlayerChampionData.get(player);
-
-        // Don't render if no champion selected or it's "no_champion"
         if (data.getChampionId().equals("no_champion")) return;
 
         GuiGraphics gfx = event.getGuiGraphics();
-        int screenW = mc.getWindow().getGuiScaledWidth();
-        int screenH = mc.getWindow().getGuiScaledHeight();
-
         String champId = data.getChampionId();
-        int level      = data.getLevel(champId);
-        int xp         = data.getXP(champId);
-        int xpNeeded   = level < 18 ? LeagueXPHelper.xpForLevel(level) : 1;
-        float xpFrac   = level < 18 ? Math.min(1f, (float) xp / xpNeeded) : 1f;
+        int level    = data.getLevel(champId);
+        int xp       = data.getXP(champId);
+        int xpNeeded = level < 18 ? LeagueXPHelper.xpForLevel(level) : 1;
+        float xpFrac = level < 18 ? Math.min(1f, (float) xp / xpNeeded) : 1f;
 
-        int barX = (screenW - BAR_W) / 2 + BADGE_SIZE + 4;
-        int barY = screenH - 32;
+        int x = PANEL_X;
+        int y = PANEL_Y;
 
-        // ── Level badge ────────────────────────────────────────────────────
-        int badgeX = (screenW - BAR_W) / 2;
-        gfx.fill(badgeX, barY - 6, badgeX + BADGE_SIZE, barY - 6 + BADGE_SIZE, 0xFF8B6914);
-        gfx.fill(badgeX + 1, barY - 5, badgeX + BADGE_SIZE - 1, barY - 6 + BADGE_SIZE - 1, 0xFF1A1A2E);
-        String lvlStr = String.valueOf(level);
-        gfx.drawCenteredString(mc.font,
-                net.minecraft.network.chat.Component.literal("§e" + lvlStr),
-                badgeX + BADGE_SIZE / 2, barY - 6 + BADGE_SIZE / 2 - 4, 0xFFFFFF);
+        // ── Panel background ──────────────────────────────────────────────────
+        int panelH = 14 + BAR_H + 4 + SLOT_H + 4;
+        gfx.fill(x - 2, y - 2, x + PANEL_W + 2, y + panelH, 0xAA000000);
+        gfx.fill(x - 2, y - 2, x + PANEL_W + 2, y - 1, 0xFFFFD700); // gold top border
 
-        // ── XP bar background ──────────────────────────────────────────────
-        gfx.fill(barX, barY, barX + BAR_W, barY + BAR_H, 0xFF111111);
-        gfx.fill(barX + 1, barY + 1, barX + BAR_W - 1, barY + BAR_H - 1, 0xFF333333);
+        // ── Champion name + level ─────────────────────────────────────────────
+        gfx.drawString(mc.font,
+                Component.literal("§6" + capitalise(champId) + " §e" + level),
+                x, y, 0xFFFFFFFF);
+        y += 10;
 
-        // XP fill
-        int fillW = (int) ((BAR_W - 2) * xpFrac);
-        if (fillW > 0) {
-            // Gradient: dark blue → bright cyan
-            gfx.fill(barX + 1, barY + 1, barX + 1 + fillW, barY + BAR_H - 1, 0xFF00BFFF);
-        }
+        // ── XP bar ────────────────────────────────────────────────────────────
+        gfx.fill(x, y, x + PANEL_W, y + BAR_H, 0xFF111111);
+        int fillW = (int) ((PANEL_W - 2) * xpFrac);
+        if (fillW > 0)
+            gfx.fill(x + 1, y + 1, x + 1 + fillW, y + BAR_H - 1, 0xFF00BFFF);
+        y += BAR_H + 3;
 
-        // Max level text
-        if (level >= 18) {
-            gfx.drawCenteredString(mc.font,
-                    net.minecraft.network.chat.Component.literal("§6MAX"),
-                    barX + BAR_W / 2, barY + 1, 0xFFFFFF);
-        } else {
-            // XP numbers
-            String xpText = xp + " / " + xpNeeded;
-            gfx.drawCenteredString(mc.font,
-                    net.minecraft.network.chat.Component.literal("§7" + xpText),
-                    barX + BAR_W / 2, barY + 1, 0xFFFFFF);
-        }
+        // XP numbers
+        String xpStr = level >= 18 ? "§6MAX"
+                : "§7" + xp + "/" + xpNeeded;
+        gfx.drawString(mc.font, Component.literal(xpStr), x, y, 0xFFFFFFFF);
+        y += 10;
 
-        // ── Ability slots ──────────────────────────────────────────────────
-        // Q→E, W→R, E→T, R→F, D→C
-        String[] keys    = { "E", "R", "T", "F", "C" };
-        int[]    ranks   = {
-                data.getQRank(champId),
-                data.getWRank(champId),
-                data.getERank(champId),
-                data.getRRank(champId),
-                0 // D slot — no rank system
+        // ── 4 Ability slots ───────────────────────────────────────────────────
+        String[] keys   = {"Z","X","C","V"};
+        String[] labels = {"Q","W","E","R"};
+        int[] ranks = {
+                data.getQRank(champId), data.getWRank(champId),
+                data.getERank(champId), data.getRRank(champId)
         };
-        int[]    maxRanks = { 5, 5, 5, 3, 0 };
+        int[] maxRanks = {5,5,5,3};
+        int avail      = data.availableSkillPoints();
 
-        int totalSlotsW = (SLOT_W + SLOT_PAD) * keys.length - SLOT_PAD;
-        int slotStartX  = (screenW - totalSlotsW) / 2;
-        int slotY       = barY + BAR_H + 4;
-
-        int availablePoints = data.availableSkillPoints();
-
-        for (int i = 0; i < keys.length; i++) {
-            int sx = slotStartX + i * (SLOT_W + SLOT_PAD);
-
-            // Slot background
-            boolean isUlt   = i == 3;
-            boolean hasPoint = availablePoints > 0 && (isUlt
+        for (int i = 0; i < 4; i++) {
+            int sx      = x + i * (SLOT_W + SLOT_PAD);
+            boolean ult = i == 3;
+            boolean noR = ranks[i] == 0;
+            boolean up  = avail > 0 && (ult
                     ? LeagueXPHelper.canRankUltimate(level, ranks[3]) && ranks[3] < 3
-                    : ranks[i] < maxRanks[i]);
+                    : ranks[i] < 5);
 
-            int slotBg = isUlt ? 0xFF2A0A4A : 0xFF0A1A2E;
-            if (hasPoint) slotBg = isUlt ? 0xFF6A1A9A : 0xFF1A4A8A; // highlight if upgradeable
+            int bg = noR ? 0xFF080810 : up ? (ult ? 0xFF3A0A5A : 0xFF0A2A4A)
+                    : ult ? 0xFF1A0A2A : 0xFF0A1020;
+            gfx.fill(sx, y, sx + SLOT_W, y + SLOT_H, bg);
 
-            gfx.fill(sx, slotY, sx + SLOT_W, slotY + SLOT_H, slotBg);
-            gfx.fill(sx, slotY, sx + SLOT_W, slotY + 1,       isUlt ? 0xFFAA44FF : 0xFF4488FF);
-            gfx.fill(sx, slotY + SLOT_H - 1, sx + SLOT_W, slotY + SLOT_H, isUlt ? 0xFFAA44FF : 0xFF4488FF);
-            gfx.fill(sx, slotY, sx + 1, slotY + SLOT_H,       isUlt ? 0xFFAA44FF : 0xFF4488FF);
-            gfx.fill(sx + SLOT_W - 1, slotY, sx + SLOT_W, slotY + SLOT_H, isUlt ? 0xFFAA44FF : 0xFF4488FF);
+            int border = up ? 0xFFFFD700 : noR ? 0xFF333344 : ult ? 0xFF9944CC : 0xFF2244AA;
+            gfx.fill(sx,           y,            sx + SLOT_W, y + 1,       border);
+            gfx.fill(sx,           y + SLOT_H-1, sx + SLOT_W, y + SLOT_H,  border);
+            gfx.fill(sx,           y,             sx + 1,     y + SLOT_H,  border);
+            gfx.fill(sx+SLOT_W-1,  y,             sx+SLOT_W,  y + SLOT_H,  border);
 
-            // Key label
+            String col = noR ? "§8" : ult ? "§d" : "§b";
             gfx.drawCenteredString(mc.font,
-                    net.minecraft.network.chat.Component.literal(
-                            isUlt ? "§d" + keys[i] : "§b" + keys[i]),
-                    sx + SLOT_W / 2, slotY + 3, 0xFFFFFF);
+                    Component.literal(col + labels[i]),
+                    sx + SLOT_W/2, y + 2, 0xFFFFFFFF);
+            gfx.drawCenteredString(mc.font,
+                    Component.literal("§8" + keys[i]),
+                    sx + SLOT_W/2, y + SLOT_H - 9, 0xFFFFFFFF);
 
-            // Rank pips (small squares at bottom of slot)
-            if (i < 4 && maxRanks[i] > 0) {
-                int pipW    = (SLOT_W - 4) / maxRanks[i] - 1;
-                int pipY    = slotY + SLOT_H - 5;
-                for (int p = 0; p < maxRanks[i]; p++) {
-                    int px    = sx + 2 + p * (pipW + 1);
-                    int color = p < ranks[i] ? 0xFFFFD700 : 0xFF444444;
-                    gfx.fill(px, pipY, px + pipW, pipY + 3, color);
-                }
+            // rank pips
+            int pipW = (SLOT_W - 4) / maxRanks[i] - 1;
+            int pipY = y + SLOT_H - 4;
+            for (int p = 0; p < maxRanks[i]; p++) {
+                int px = sx + 2 + p * (pipW + 1);
+                gfx.fill(px, pipY, px + pipW, pipY + 3,
+                        p < ranks[i] ? 0xFFFFD700 : 0xFF333333);
             }
 
-            // Upgradeable indicator
-            if (hasPoint) {
-                gfx.drawCenteredString(mc.font,
-                        net.minecraft.network.chat.Component.literal("§e+"),
-                        sx + SLOT_W - 5, slotY + 3, 0xFFFFFF);
+            if (up) {
+                gfx.fill(sx + SLOT_W - 6, y, sx + SLOT_W, y + 7, 0xCCFFD700);
+                gfx.drawString(mc.font, Component.literal("§0+"), sx + SLOT_W - 6, y + 1, 0xFFFFFFFF);
             }
         }
+
+        // ── Spell slots — side by side below ability row ───────────────────────
+        int spellY = y + SLOT_H + 3;
+        drawSpell(gfx, mc, data, x,        spellY, 20, true);   // D (R key)
+        drawSpell(gfx, mc, data, x + 22,   spellY, 20, false);  // F (G key)
+    }
+
+    private static String capitalise(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+
+    private static void drawSpell(GuiGraphics gfx, Minecraft mc,
+                                  PlayerChampionData data,
+                                  int x, int y, int size, boolean isD) {
+        var sd    = data.getSpellData();
+        var spell = isD ? sd.getSpellD() : sd.getSpellF();
+        int cd    = isD ? sd.getCooldownD() : sd.getCooldownF();
+        boolean rdy = cd <= 0;
+
+        gfx.fill(x, y, x+size, y+size, rdy ? 0xFF0A1020 : 0xFF150505);
+        int b = rdy ? 0xFF4466AA : 0xFF663333;
+        gfx.fill(x, y, x+size, y+1, b);
+        gfx.fill(x, y+size-1, x+size, y+size, b);
+        gfx.fill(x, y, x+1, y+size, b);
+        gfx.fill(x+size-1, y, x+size, y+size, b);
+
+        String name = spell.getDisplayName().substring(0, Math.min(2, spell.getDisplayName().length()));
+        gfx.drawCenteredString(mc.font,
+                Component.literal((rdy ? "§b" : "§8") + name),
+                x + size/2, y + 2, 0xFFFFFFFF);
+        if (!rdy)
+            gfx.drawCenteredString(mc.font,
+                    Component.literal("§c" + (cd/20)),
+                    x + size/2, y + size/2 - 3, 0xFFFFFFFF);
+
+        gfx.drawCenteredString(mc.font,
+                Component.literal("§8" + (isD ? "R" : "G")),
+                x + size/2, y + size - 8, 0xFFFFFFFF);
     }
 }

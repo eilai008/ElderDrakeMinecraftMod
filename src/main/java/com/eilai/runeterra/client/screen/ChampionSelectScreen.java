@@ -2,65 +2,53 @@ package com.eilai.runeterra.client.screen;
 
 import com.eilai.runeterra.champion.ChampionDefinition;
 import com.eilai.runeterra.champion.ChampionRegistry;
-import com.eilai.runeterra.champion.ChampionStatus;
 import com.eilai.runeterra.champion.PlayerChampionData;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.eilai.runeterra.client.SkinManager;
+import com.eilai.runeterra.network.ChampionSelectPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import java.util.List;
 
-/**
- * Champion Select Screen.
- *
- * Layout:
- *  - Left panel: scrollable 3-column grid of champion cards
- *  - Right panel: selected champion details (splash, name, title, abilities)
- *  - Bottom: Confirm button
- *
- * Cards that are UNDER_CONSTRUCTION show a hammer overlay and are unclickable.
- */
 public class ChampionSelectScreen extends Screen {
 
-    // ── Layout constants ──────────────────────────────────────────────────────
-    private static final int CARD_W      = 54;
-    private static final int CARD_H      = 72;
-    private static final int CARD_PAD    = 6;
-    private static final int COLS        = 3;
-    private static final int PANEL_LEFT_W = (CARD_W + CARD_PAD) * COLS + CARD_PAD + 10;
-
-    // ── Textures ──────────────────────────────────────────────────────────────
-    private static final ResourceLocation BACKGROUND =
-            ResourceLocation.fromNamespaceAndPath("runeterra", "textures/gui/champion_select/background.png");
-    private static final ResourceLocation CARD_AVAILABLE =
-            ResourceLocation.fromNamespaceAndPath("runeterra", "textures/gui/champion_select/card_available.png");
-    private static final ResourceLocation CARD_WIP =
-            ResourceLocation.fromNamespaceAndPath("runeterra", "textures/gui/champion_select/card_wip.png");
-    private static final ResourceLocation CARD_SELECTED =
-            ResourceLocation.fromNamespaceAndPath("runeterra", "textures/gui/champion_select/card_selected.png");
-    private static final ResourceLocation WIP_OVERLAY =
-            ResourceLocation.fromNamespaceAndPath("runeterra", "textures/gui/champion_select/wip_overlay.png");
-    private static final ResourceLocation SPLASH_BASE =
-            ResourceLocation.fromNamespaceAndPath("runeterra", "textures/champion/splash/");
-
-    // ── State ─────────────────────────────────────────────────────────────────
-    private final List<ChampionDefinition> champions;
-    private ChampionDefinition selected;
-    private int scrollOffset = 0; // in card rows
-    private Button confirmButton;
+    // Grid: 2 columns on left side, narrower so detail panel has room
+    private static final int CARD_W   = 70;
+    private static final int CARD_H   = 18;
+    private static final int CARD_PAD = 2;
+    private static final int COLS     = 2;
+    private static final int TITLE_H  = 14;
+    private static final int GRID_X   = 4;
+    private static final int GRID_Y   = TITLE_H + 4;
+    private static final int GRID_W   = (CARD_W + CARD_PAD) * COLS - CARD_PAD; // 142
 
     // Detail panel
-    private static final int DETAIL_X_OFFSET = PANEL_LEFT_W + 12;
-    private static final int DETAIL_W         = 160;
+    private static final int DETAIL_GAP = 8;
+
+    // Colors
+    private static final int COL_BG          = 0xFF0A0A14;
+    private static final int COL_CARD_NORMAL = 0xFF1A1A2E;
+    private static final int COL_CARD_HOVER  = 0xFF252540;
+    private static final int COL_CARD_SEL    = 0xFF3A2800;
+    private static final int COL_BORDER_SEL  = 0xFFFFD700;
+    private static final int COL_BORDER_NORM = 0xFF444466;
+    private static final int COL_BORDER_WIP  = 0xFF333333;
+    private static final int COL_DETAIL_BG   = 0xFF0F0F1E;
+    private static final int COL_ABILITY_BG  = 0xFF16162A;
+    private static final int COL_DIVIDER     = 0xFF2A2A4A;
+
+    private final List<ChampionDefinition> champions;
+    private ChampionDefinition selected;
+    private int scrollOffset = 0;
 
     public ChampionSelectScreen() {
         super(Component.literal("Champion Select"));
         this.champions = ChampionRegistry.all();
-        // Default selection: current champion or no_champion
         String currentId = "no_champion";
         if (Minecraft.getInstance().player != null) {
             currentId = PlayerChampionData.get(Minecraft.getInstance().player).getChampionId();
@@ -74,233 +62,215 @@ public class ChampionSelectScreen extends Screen {
 
     @Override
     protected void init() {
-        int confirmX = this.width / 2 + DETAIL_W / 2 - 60;
-        int confirmY = this.height - 30;
-
-        confirmButton = Button.builder(Component.literal("✔ Confirm"), btn -> confirmSelection())
-                .pos(confirmX, confirmY)
-                .size(120, 20)
-                .build();
-        this.addRenderableWidget(confirmButton);
+        rebuildCardButtons();
     }
 
-    // ── Rendering ─────────────────────────────────────────────────────────────
+    private int detailX() { return GRID_X + GRID_W + DETAIL_GAP; }
+    private int detailW() { return this.width - detailX() - 4; }
 
-    @Override
-    public void render(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-        // Dark background
-        this.renderBackground(gfx, mouseX, mouseY, partialTick);
+    private void rebuildCardButtons() {
+        this.clearWidgets();
 
-        int startX = CARD_PAD;
-        int startY = CARD_PAD + 20; // leave room for title
-
-        // Title
-        gfx.drawCenteredString(this.font,
-                Component.literal("§6§lCHOOSE YOUR CHAMPION"),
-                this.width / 2, 8, 0xFFFFFF);
-
-        // ── Draw champion grid ─────────────────────────────────────────────
-        int totalRows = (int) Math.ceil(champions.size() / (double) COLS);
-        int visibleRows = (this.height - startY - 40) / (CARD_H + CARD_PAD);
+        int visibleRows = getVisibleRows();
+        int totalRows   = getTotalRows();
 
         for (int row = 0; row < visibleRows; row++) {
             int dataRow = row + scrollOffset;
             if (dataRow >= totalRows) break;
-
             for (int col = 0; col < COLS; col++) {
                 int idx = dataRow * COLS + col;
                 if (idx >= champions.size()) break;
-
                 ChampionDefinition champ = champions.get(idx);
-                int cx = startX + col * (CARD_W + CARD_PAD);
-                int cy = startY + row * (CARD_H + CARD_PAD);
-
-                drawChampionCard(gfx, champ, cx, cy, mouseX, mouseY);
+                if (champ.isUnderConstruction()) continue;
+                int cx = GRID_X + col * (CARD_W + CARD_PAD);
+                int cy = GRID_Y + row * (CARD_H + CARD_PAD);
+                final ChampionDefinition fc = champ;
+                this.addRenderableWidget(
+                        Button.builder(Component.empty(), btn -> selected = fc)
+                                .pos(cx, cy).size(CARD_W, CARD_H).build());
             }
         }
 
-        // Scroll hint
-        if (scrollOffset > 0)
-            gfx.drawString(this.font, "▲", startX + PANEL_LEFT_W / 2 - 4, startY - 12, 0xAAAAAA);
-        if (scrollOffset < totalRows - visibleRows)
-            gfx.drawString(this.font, "▼", startX + PANEL_LEFT_W / 2 - 4, startY + visibleRows * (CARD_H + CARD_PAD) + 2, 0xAAAAAA);
+        int dx = detailX(), dw = detailW();
+        this.addRenderableWidget(
+                Button.builder(Component.literal("✔ Confirm"), btn -> confirmSelection())
+                        .pos(dx + dw / 2 - 45, this.height - 20)
+                        .size(90, 14).build());
 
-        // ── Draw detail panel ──────────────────────────────────────────────
-        if (selected != null) {
-            drawDetailPanel(gfx, selected, DETAIL_X_OFFSET, 20);
+        if (scrollOffset > 0)
+            this.addRenderableWidget(
+                    Button.builder(Component.literal("▲"), btn -> scroll(-1))
+                            .pos(GRID_X + GRID_W / 2 - 8, GRID_Y - 13)
+                            .size(16, 11).build());
+        if (scrollOffset < getTotalRows() - getVisibleRows())
+            this.addRenderableWidget(
+                    Button.builder(Component.literal("▼"), btn -> scroll(1))
+                            .pos(GRID_X + GRID_W / 2 - 8,
+                                    GRID_Y + getVisibleRows() * (CARD_H + CARD_PAD))
+                            .size(16, 11).build());
+    }
+
+    private int getVisibleRows() {
+        return Math.max(1, (this.height - GRID_Y - 24) / (CARD_H + CARD_PAD));
+    }
+
+    private int getTotalRows() {
+        return (int) Math.ceil(champions.size() / (double) COLS);
+    }
+
+    private void scroll(int delta) {
+        scrollOffset = Math.max(0, Math.min(
+                Math.max(0, getTotalRows() - getVisibleRows()), scrollOffset + delta));
+        rebuildCardButtons();
+    }
+
+    @Override
+    public void render(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        gfx.fill(0, 0, this.width, this.height, 0xEE000000);
+
+        // Title bar
+        gfx.fill(0, 0, this.width, TITLE_H, 0xFF0D0D1A);
+        gfx.fill(0, TITLE_H - 1, this.width, TITLE_H, COL_BORDER_SEL);
+        gfx.drawCenteredString(this.font,
+                Component.literal("§6§lCHOOSE YOUR CHAMPION"),
+                this.width / 2, 3, 0xFFFFFFFF);
+
+        // Left grid background
+        gfx.fill(GRID_X - 2, GRID_Y - 2,
+                GRID_X + GRID_W + 4, this.height - 2, COL_BG);
+        gfx.fill(GRID_X + GRID_W + 3, GRID_Y - 2,
+                GRID_X + GRID_W + 4, this.height - 2, COL_DIVIDER);
+
+        // Cards
+        int visibleRows = getVisibleRows(), totalRows = getTotalRows();
+        for (int row = 0; row < visibleRows; row++) {
+            int dataRow = row + scrollOffset;
+            if (dataRow >= totalRows) break;
+            for (int col = 0; col < COLS; col++) {
+                int idx = dataRow * COLS + col;
+                if (idx >= champions.size()) break;
+                drawCard(gfx, champions.get(idx),
+                        GRID_X + col * (CARD_W + CARD_PAD),
+                        GRID_Y + row * (CARD_H + CARD_PAD),
+                        mouseX, mouseY);
+            }
+        }
+
+        // Detail panel
+        int dx = detailX(), dw = detailW();
+        if (dw > 60 && selected != null) {
+            drawDetailPanel(gfx, selected, dx, GRID_Y, dw);
         }
 
         super.render(gfx, mouseX, mouseY, partialTick);
     }
 
-    private void drawChampionCard(GuiGraphics gfx, ChampionDefinition champ,
-                                  int x, int y, int mouseX, int mouseY) {
-        boolean isSelected = champ.id().equals(selected != null ? selected.id() : "");
-        boolean isWIP      = champ.isUnderConstruction();
-        boolean hovered    = !isWIP && mouseX >= x && mouseX < x + CARD_W
-                && mouseY >= y && mouseY < y + CARD_H;
+    private void drawCard(GuiGraphics gfx, ChampionDefinition champ,
+                          int x, int y, int mx, int my) {
+        boolean isSel   = champ.id().equals(selected != null ? selected.id() : "");
+        boolean isWIP   = champ.isUnderConstruction();
+        boolean hovered = !isWIP && mx >= x && mx < x + CARD_W && my >= y && my < y + CARD_H;
 
-        // Card background
-        int bgColor = isSelected ? 0xFF8B6914 : (hovered ? 0xFF3A3A3A : 0xFF1E1E2E);
-        gfx.fill(x, y, x + CARD_W, y + CARD_H, bgColor);
-        gfx.fill(x, y, x + CARD_W, y + 1, 0xFF888888); // top border
-        gfx.fill(x, y + CARD_H - 1, x + CARD_W, y + CARD_H, 0xFF888888); // bottom border
-        gfx.fill(x, y, x + 1, y + CARD_H, 0xFF888888); // left border
-        gfx.fill(x + CARD_W - 1, y, x + CARD_W, y + CARD_H, 0xFF888888); // right border
+        gfx.fill(x, y, x + CARD_W, y + CARD_H,
+                isSel ? COL_CARD_SEL : hovered ? COL_CARD_HOVER : COL_CARD_NORMAL);
+        int border = isSel ? COL_BORDER_SEL : isWIP ? COL_BORDER_WIP : COL_BORDER_NORM;
+        gfx.fill(x,            y,            x + CARD_W, y + 1,      border);
+        gfx.fill(x,            y + CARD_H-1, x + CARD_W, y + CARD_H, border);
+        gfx.fill(x,            y,            x + 1,      y + CARD_H, border);
+        gfx.fill(x + CARD_W-1, y,            x + CARD_W, y + CARD_H, border);
 
-        // Splash texture (top 2/3 of card)
-        int splashH = CARD_H - 18;
-        try {
-            ResourceLocation splash = ResourceLocation.fromNamespaceAndPath(
-                    "runeterra", "textures/champion/splash/" + champ.splashTexture());
-            RenderSystem.setShaderColor(isWIP ? 0.4f : 1.0f, isWIP ? 0.4f : 1.0f,
-                    isWIP ? 0.4f : 1.0f, 1.0f);
-            gfx.blit(splash, x + 1, y + 1, 0, 0, CARD_W - 2, splashH, CARD_W - 2, splashH);
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        } catch (Exception ignored) {
-            // Texture not found — draw colored placeholder
-            gfx.fill(x + 1, y + 1, x + CARD_W - 1, y + splashH, isWIP ? 0xFF222222 : 0xFF2A4A7A);
-        }
-
-        // WIP overlay — hammer icon area
-        if (isWIP) {
-            // Dark tint already applied above; draw "🚧" text
-            gfx.fill(x + 1, y + 1, x + CARD_W - 1, y + splashH, 0x88000000);
-            gfx.drawCenteredString(this.font,
-                    Component.literal("§e⚒"), x + CARD_W / 2, y + splashH / 2 - 4, 0xFFFFFF);
-        }
-
-        // Champion name at bottom of card
-        String shortName = champ.displayName().length() > 9
-                ? champ.displayName().substring(0, 8) + "." : champ.displayName();
+        String prefix = isWIP ? "§7⚒ §8" : isSel ? "§6§l" : "§f";
+        // Truncate name to fit card width (about 9 chars at default font)
+        String name = champ.displayName();
+        if (name.length() > 10) name = name.substring(0, 9) + ".";
         gfx.drawCenteredString(this.font,
-                Component.literal(isWIP ? "§7" + shortName : "§f" + shortName),
-                x + CARD_W / 2, y + CARD_H - 14, 0xFFFFFF);
+                Component.literal(prefix + name),
+                x + CARD_W / 2, y + CARD_H / 2 - 3, 0xFFFFFFFF);
     }
 
-    private void drawDetailPanel(GuiGraphics gfx, ChampionDefinition champ, int x, int y) {
-        int panelW = DETAIL_W;
+    private void drawDetailPanel(GuiGraphics gfx, ChampionDefinition champ,
+                                 int x, int y, int w) {
+        int panelH = this.height - y - 22;
+        gfx.fill(x, y, x + w, y + panelH, COL_DETAIL_BG);
+        gfx.fill(x, y, x + w, y + 1, COL_BORDER_SEL);
 
-        // Panel background
-        gfx.fill(x - 4, y - 4, x + panelW + 4, this.height - 36, 0xCC0A0A14);
+        int ty = y + 4;
 
-        // Splash (large)
-        int splashH = 90;
-        try {
-            ResourceLocation splash = ResourceLocation.fromNamespaceAndPath(
-                    "runeterra", "textures/champion/splash/" + champ.splashTexture());
-            gfx.blit(splash, x, y, 0, 0, panelW, splashH, panelW, splashH);
-        } catch (Exception ignored) {
-            gfx.fill(x, y, x + panelW, y + splashH, 0xFF1A2A4A);
+        // Splash art (file is at textures/champion/splash/)
+        if (!champ.isUnderConstruction() && !champ.splashTexture().equals("placeholder.png")) {
+            Identifier splash = Identifier.fromNamespaceAndPath("runeterra",
+                    "textures/champion/splash/" + champ.splashTexture());
+            try {
+                int splashH = Math.min(50, panelH / 4);
+                gfx.blit(splash, x, y, 0, 0, w, splashH, 256, 128);
+                gfx.fill(x, y + splashH - 10, x + w, y + splashH, 0xCC000000);
+                ty = y + splashH + 2;
+            } catch (Exception ignored) {}
         }
 
-        int textY = y + splashH + 6;
-
-        // Name + title
         gfx.drawCenteredString(this.font,
                 Component.literal("§6§l" + champ.displayName()),
-                x + panelW / 2, textY, 0xFFFFFF);
-        textY += 10;
+                x + w / 2, ty, 0xFFFFFFFF);
+        ty += 9;
         gfx.drawCenteredString(this.font,
                 Component.literal("§7" + champ.title()),
-                x + panelW / 2, textY, 0xFFFFFF);
-        textY += 14;
+                x + w / 2, ty, 0xFFFFFFFF);
+        ty += 10;
+        gfx.fill(x + 4, ty, x + w - 4, ty + 1, COL_DIVIDER);
+        ty += 3;
 
         if (champ.isUnderConstruction()) {
             gfx.drawCenteredString(this.font,
-                    Component.literal("§c§l⚒ Under Construction"),
-                    x + panelW / 2, textY, 0xFFFFFF);
+                    Component.literal("§c⚒ Under Construction"),
+                    x + w / 2, ty + 8, 0xFFFFFFFF);
             return;
         }
 
-        // Abilities
-        drawAbilityRow(gfx, x, textY, panelW, "§ePassive", champ.passive());
-        textY += 22;
-        drawAbilityRow(gfx, x, textY, panelW, "§aQ (E key)", champ.abilityQ());
-        textY += 22;
-        drawAbilityRow(gfx, x, textY, panelW, "§aW (R key)", champ.abilityW());
-        textY += 22;
-        drawAbilityRow(gfx, x, textY, panelW, "§aE (T key)", champ.abilityE());
-        textY += 22;
-        drawAbilityRow(gfx, x, textY, panelW, "§dR (F key) §7[Ultimate]", champ.abilityR());
-        textY += 22;
-        drawAbilityRow(gfx, x, textY, panelW, "§bD (C key)", champ.abilityD());
+        ty = drawAbility(gfx, x, ty, w, "§ePassive",       champ.passive());
+        ty = drawAbility(gfx, x, ty, w, "§aQ §7(Z)",       champ.abilityQ());
+        ty = drawAbility(gfx, x, ty, w, "§aW §7(X)",       champ.abilityW());
+        ty = drawAbility(gfx, x, ty, w, "§aE §7(C)",       champ.abilityE());
+        ty = drawAbility(gfx, x, ty, w, "§dR §7(V) §8Ult", champ.abilityR());
+        drawAbility(gfx, x, ty, w, "§bD/F §7(R/G)",   champ.abilityD());
     }
 
-    private void drawAbilityRow(GuiGraphics gfx, int x, int y, int w,
-                                 String keyLabel, String description) {
-        gfx.fill(x, y, x + w, y + 20, 0x881A1A2E);
-        gfx.drawString(this.font, Component.literal(keyLabel), x + 3, y + 2, 0xFFFFFF);
-        // Truncate description to fit
-        String desc = description.length() > 34 ? description.substring(0, 31) + "..." : description;
-        gfx.drawString(this.font, Component.literal("§7" + desc), x + 3, y + 11, 0xFFFFFF);
-    }
+    private int drawAbility(GuiGraphics gfx, int x, int y, int w,
+                            String key, String desc) {
+        gfx.fill(x + 2, y, x + w - 2, y + 17, COL_ABILITY_BG);
+        gfx.drawString(this.font, Component.literal(key), x + 4, y + 1, 0xFFFFFFFF);
 
-    // ── Input ─────────────────────────────────────────────────────────────────
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int startX = CARD_PAD;
-        int startY = CARD_PAD + 20;
-        int visibleRows = (this.height - startY - 40) / (CARD_H + CARD_PAD);
-
-        for (int row = 0; row < visibleRows; row++) {
-            int dataRow = row + scrollOffset;
-            for (int col = 0; col < COLS; col++) {
-                int idx = dataRow * COLS + col;
-                if (idx >= champions.size()) break;
-
-                ChampionDefinition champ = champions.get(idx);
-                if (champ.isUnderConstruction()) continue;
-
-                int cx = startX + col * (CARD_W + CARD_PAD);
-                int cy = startY + row * (CARD_H + CARD_PAD);
-
-                if (mouseX >= cx && mouseX < cx + CARD_W && mouseY >= cy && mouseY < cy + CARD_H) {
-                    selected = champ;
-                    return true;
-                }
-            }
+        // Truncate description based on actual pixel width
+        String t = desc;
+        int maxWidth = w - 10;
+        while (t.length() > 4 && this.font.width("§8" + t + "…") > maxWidth) {
+            t = t.substring(0, t.length() - 1);
         }
-
-        return super.mouseClicked(mouseX, mouseY, button);
+        if (t.length() < desc.length()) t += "…";
+        gfx.drawString(this.font, Component.literal("§8" + t), x + 4, y + 9, 0xFFFFFFFF);
+        return y + 19;
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int totalRows = (int) Math.ceil(champions.size() / (double) COLS);
-        int visibleRows = (this.height - (CARD_PAD + 20) - 40) / (CARD_H + CARD_PAD);
-        int maxScroll = Math.max(0, totalRows - visibleRows);
-
-        scrollOffset = (int) Math.max(0, Math.min(maxScroll, scrollOffset - scrollY));
+    public boolean mouseScrolled(double mouseX, double mouseY,
+                                 double scrollX, double scrollY) {
+        if (mouseX < detailX()) scroll(scrollY > 0 ? -1 : 1);
         return true;
     }
 
-    // ── Confirm ───────────────────────────────────────────────────────────────
-
     private void confirmSelection() {
         if (selected == null) return;
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
         PlayerChampionData data = PlayerChampionData.get(mc.player);
-        int result = data.trySetChampion(selected.id(), mc.player.level().getGameTime());
-
-        switch (result) {
-            case 0 -> {
-                // TODO: send ChampionSelectedPacket to server
-                // ModPackets.sendToServer(new ChampionSelectedPacket(selected.id()));
-                mc.setScreen(null);
-            }
-            case 1 -> mc.player.displayClientMessage(
-                    Component.literal("§cYou are still in combat!"), true);
-            case 2 -> mc.player.displayClientMessage(
-                    Component.literal("§cChampion switch is on cooldown!"), true);
+        if (!data.hasSelectedOnce()) {
+            data.forceSetChampion(selected.id());
         }
-    }
 
-    // ── Prevent closing without selecting (first time) ────────────────────────
+        SkinManager.applySkin(mc.player.getUUID(), selected.id());
+        ClientPacketDistributor.sendToServer(new ChampionSelectPacket(selected.id()));
+        mc.setScreen(null);
+    }
 
     @Override
     public boolean shouldCloseOnEsc() {

@@ -1,5 +1,4 @@
 package com.eilai.runeterra.entity;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerBossEvent;
@@ -783,6 +782,7 @@ public class ElderDrakeEntity extends Monster implements GeoEntity {
         atk.triggerableAnim(ANIM_RANGE, RawAnimation.begin().thenPlay(ANIM_RANGE));
         controllers.add(atk);
     }
+
 
     @Override public AnimatableInstanceCache getAnimatableInstanceCache() { return cache; }
     public boolean isDrakeFlying()    { return this.entityData.get(DATA_IS_FLYING); }

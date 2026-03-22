@@ -1,109 +1,57 @@
 package com.eilai.runeterra.client;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.Identifier;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.loading.FMLEnvironment;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * Manages champion skin application on the client.
+ * Stores champion skin texture overrides per player UUID.
  *
- * When a champion is selected, their skin texture is applied as an
- * override to the local player's skin. When "no_champion" is selected,
- * the original skin is restored.
+ * Skin PNGs: assets/runeterra/textures/champion/<champId>.png
+ * Must be standard 64×64 Minecraft skin format.
  *
- * Skin textures go at:
- *   assets/runeterra/textures/champion/skin/<champId>.png
- *
- * The PNG must be a standard 64x64 Minecraft skin format.
- *
- * NOTE: This is client-side only. Other players on a multiplayer server
- * won't see the skin change unless you implement a custom player renderer.
- * For singleplayer this works perfectly.
+ * NOTE: path is textures/champion/ (NOT textures/champion/skin/)
+ * to match the actual file location in your resources folder.
  */
 public class SkinManager {
 
-    /** Maps champId → skin resource location */
-    private static final Map<String, Identifier> SKINS = new HashMap<>();
+    private static final Map<UUID, Identifier> OVERRIDES = new HashMap<>();
+    private static final Map<String, Identifier> CHAMPION_SKINS = new HashMap<>();
 
     static {
-        // Register champion skins here
-        // Pattern: SKINS.put("champId", Identifier.fromNamespaceAndPath("runeterra", "textures/champion/skin/champId.png"));
-        SKINS.put("vayne", Identifier.fromNamespaceAndPath("runeterra", "textures/champion/skin/vayne.png"));
-        // Add more as you implement them:
-        // SKINS.put("garen", Identifier.fromNamespaceAndPath("runeterra", "textures/champion/skin/garen.png"));
+        // Path matches: src/main/resources/assets/runeterra/textures/champion/vayne.png
+        CHAMPION_SKINS.put("vayne", Identifier.fromNamespaceAndPath("runeterra",
+                "textures/champion/vayne.png"));
     }
 
-    /** Stored original skin before any champion was applied */
-    private static PlayerSkin originalSkin = null;
-
-    /**
-     * Apply the skin for the given champion.
-     * Call this from ClientChampionEvents when champion select is confirmed.
-     * Must be called on the client thread.
-     */
-    public static void applySkin(String championId) {
-        if (FMLEnvironment.dist != Dist.CLIENT) return;
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-
+    public static void applySkin(UUID playerId, String championId) {
         if (championId.equals("no_champion")) {
-            restoreOriginalSkin();
+            OVERRIDES.remove(playerId);
             return;
         }
-
-        Identifier skinTex = SKINS.get(championId);
-        if (skinTex == null) return; // no skin registered for this champion
-
-        // Store original skin the first time we apply a champion skin
-        if (originalSkin == null) {
-            originalSkin = mc.player.getSkin();
+        Identifier skin = CHAMPION_SKINS.get(championId);
+        if (skin != null) {
+            OVERRIDES.put(playerId, skin);
+        } else {
+            OVERRIDES.remove(playerId);
         }
-
-        // Build a new PlayerSkin with our champion texture
-        // keeping the same model (slim/classic) as the original
-        PlayerSkin current = mc.player.getSkin();
-        PlayerSkin champSkin = new PlayerSkin(
-                skinTex,
-                null,                    // no cape
-                null,                    // no elytra
-                null,                    // no ear texture
-                current.model(),         // keep slim/classic model
-                current.secure()
-        );
-
-        // Apply via the skin override — uses NeoForge's player skin hook
-        SkinOverrideHandler.setOverride(mc.player.getUUID(), champSkin);
     }
 
-    /**
-     * Restore the player's original skin.
-     */
-    public static void restoreOriginalSkin() {
-        if (FMLEnvironment.dist != Dist.CLIENT) return;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-
-        SkinOverrideHandler.clearOverride(mc.player.getUUID());
-        originalSkin = null;
+    public static Identifier getOverride(UUID playerId) {
+        return OVERRIDES.get(playerId);
     }
 
-    /**
-     * Returns the skin texture for a champion, or null if none is registered.
-     */
-    public static Identifier getSkinTexture(String championId) {
-        return SKINS.get(championId);
+    public static boolean hasOverride(UUID playerId) {
+        return OVERRIDES.containsKey(playerId);
     }
 
-    /**
-     * Returns true if a skin is registered for this champion.
-     */
     public static boolean hasSkin(String championId) {
-        return SKINS.containsKey(championId);
+        return CHAMPION_SKINS.containsKey(championId);
+    }
+
+    public static void clearAll() {
+        OVERRIDES.clear();
     }
 }

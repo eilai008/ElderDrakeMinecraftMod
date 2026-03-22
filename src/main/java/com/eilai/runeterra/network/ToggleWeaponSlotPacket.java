@@ -14,15 +14,15 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  */
 public record ToggleWeaponSlotPacket() implements CustomPacketPayload {
 
-    public static final CustomPacketPayload.Type<ToggleWeaponSlotPacket> TYPE =
-            new CustomPacketPayload.Type<>(
+    public static final Type<ToggleWeaponSlotPacket> TYPE =
+            new Type<>(
                     Identifier.fromNamespaceAndPath("runeterra", "toggle_weapon"));
 
     public static final StreamCodec<ByteBuf, ToggleWeaponSlotPacket> STREAM_CODEC =
             StreamCodec.unit(new ToggleWeaponSlotPacket());
 
     @Override
-    public CustomPacketPayload.Type<ToggleWeaponSlotPacket> type() { return TYPE; }
+    public Type<ToggleWeaponSlotPacket> type() { return TYPE; }
 
     public static void handle(ToggleWeaponSlotPacket packet, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {

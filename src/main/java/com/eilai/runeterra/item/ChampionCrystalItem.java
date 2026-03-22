@@ -4,17 +4,18 @@ import com.eilai.runeterra.champion.PlayerChampionData;
 import com.eilai.runeterra.client.screen.ChampionSelectScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
-import java.util.List;
-
+/**
+ * Champion Crystal — right-click to open Champion Select screen.
+ *
+ * Tooltip removed to avoid TooltipContext signature issues.
+ * The item name itself acts as a sufficient indicator.
+ */
 public class ChampionCrystalItem extends Item {
 
     public ChampionCrystalItem(Properties properties) {
@@ -22,57 +23,41 @@ public class ChampionCrystalItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         if (level.isClientSide()) {
             openScreenIfAllowed(player);
         }
-        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide());
+        return InteractionResult.SUCCESS;
     }
 
-    @OnlyIn(Dist.CLIENT)
     private void openScreenIfAllowed(Player player) {
         PlayerChampionData data = PlayerChampionData.get(player);
         long gameTick = player.level().getGameTime();
 
-        // First time — always open
         if (!data.hasSelectedOnce()) {
             net.minecraft.client.Minecraft.getInstance()
                     .setScreen(new ChampionSelectScreen());
             return;
         }
 
-        // Combat check
         if (data.getLastCombatTick() >= 0
                 && (gameTick - data.getLastCombatTick()) < PlayerChampionData.OUT_OF_COMBAT_TICKS) {
-            long ticksLeft = PlayerChampionData.OUT_OF_COMBAT_TICKS
-                    - (gameTick - data.getLastCombatTick());
-            long secondsLeft = ticksLeft / 20;
+            long secondsLeft = (PlayerChampionData.OUT_OF_COMBAT_TICKS
+                    - (gameTick - data.getLastCombatTick())) / 20;
             player.displayClientMessage(
-                    Component.literal("§cYou were in combat recently! Wait " + secondsLeft + "s."),
-                    true);
+                    Component.literal("§cStill in combat! Wait " + secondsLeft + "s."), true);
             return;
         }
 
-        // Cooldown check
-        long now = System.currentTimeMillis();
-        long elapsed = now - data.getLastSwitchMs();
+        long elapsed = System.currentTimeMillis() - data.getLastSwitchMs();
         if (elapsed < PlayerChampionData.SWITCH_COOLDOWN_MS) {
             long minutesLeft = (PlayerChampionData.SWITCH_COOLDOWN_MS - elapsed) / 60000;
             player.displayClientMessage(
-                    Component.literal("§cChampion switch on cooldown! " + minutesLeft + " min remaining."),
-                    true);
+                    Component.literal("§cCooldown! " + minutesLeft + " min remaining."), true);
             return;
         }
 
         net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new ChampionSelectScreen());
-    }
-
-    @Override
-    @OnlyIn(Dist.CLIENT)
-    public void appendHoverText(ItemStack stack, TooltipContext context,
-                                List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.literal("§7Right-click to open Champion Select."));
-        tooltip.add(Component.literal("§8Requires 5 min out of combat + 1h cooldown."));
     }
 }
