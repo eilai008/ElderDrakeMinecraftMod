@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.eilai.runeterra.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "runeterra.refmap.json",
+  "mixins": [
+    "InventoryMixin",
+    "PlayerMixin"
+  ],
+  "client": [
+    "InventoryScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
